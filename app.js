@@ -6,46 +6,25 @@ var Transform = require('stream').Transform;
 
 var app = express();
 
-var google_analytics_id = process.env.GA_ID || null;
+function extractHostname(url){var hostname;if (url.indexOf("//") > -1){hostname = url.split('/')[2]}else{hostname = url.split('/')[0];}hostname = hostname.split(':')[0];hostname = hostname.split('?')[0];return hostname.replace('www.','')}
 
-function addGa(html) {
-    if (google_analytics_id) {
-        var ga = [
-            "<script type=\"text/javascript\">",
-            "var _gaq = []; // overwrite the existing one, if any",
-            "_gaq.push(['_setAccount', '" + google_analytics_id + "']);",
-            "_gaq.push(['_trackPageview']);",
-            "(function() {",
-            "  var ga = document.createElement('script'); ga.type = 'text/javascript'; ga.async = true;",
-            "  ga.src = ('https:' == document.location.protocol ? 'https://ssl' : 'http://www') + '.google-analytics.com/ga.js';",
-            "  var s = document.getElementsByTagName('script')[0]; s.parentNode.insertBefore(ga, s);",
-            "})();",
-            "</script>"
-            ].join("\n");
-        html = html.replace("</body>", ga + "\n\n</body>");
-    }
-    return html;
-}
-
-function googleAnalyticsMiddleware(data) {
-    if (data.contentType == 'text/html') {
-
-       
-        data.stream = data.stream.pipe(new Transform({
-            decodeStrings: false,
-            transform: function(chunk, encoding, next) {
-                this.push(addGa(chunk.toString()));
-                next();
-            }
-        }));
-    }
+var bannedurls=['googlesyndication.com','googletagmanager.com','etahub.com','adsoftheworld.com','amazon-adsystem.com','juicyads.com','googleadservices.com','moatads.com','doubleclick.net','youtube','trafficjunky.net','localhost','192.168','whatsmyip.com','doubleclick.net','0.0','127.0','discord','whatismyip','pornhub.com','xvideos.com','redtube.com','xhamster.com'];
+function userAgent(data){
+	bannedurls.forEach(e=>{
+		if(!extractHostname(data.url).includes('cdn.discordapp.com') && (extractHostname(data.url).includes(e) || data.url.includes('ads.js'))){
+			data.clientResponse.status(403).send('<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd"><html xmlns="http://www.w3.org/1999/xhtml"><head><meta http-equiv="Content-Type" content="text/html; charset=iso-8859-1"/><title>403 - Forbidden: Access is denied.</title><style type="text/css"><!--body{margin:0;font-size:.7em;font-family:Verdana, Arial, Helvetica, sans-serif;background:#EEEEEE;}fieldset{padding:0 15px 10px 15px;}h1{font-size:2.4em;margin:0;color:#FFF;}h2{font-size:1.7em;margin:0;color:#CC0000;}h3{font-size:1.2em;margin:10px 0 0 0;color:#000000;}#header{width:96%;margin:0 0 0 0;padding:6px 2% 6px 2%;font-family:"trebuchet MS", Verdana, sans-serif;color:#FFF;background-color:#555555;}#content{margin:0 0 0 2%;position:relative;}.content-container{background:#FFF;width:96%;margin-top:8px;padding:10px;position:relative;}--></style></head><body><div id="header"><h1>Server Error</h1></div><div id="content"><div class="content-container"><fieldset><h2>403 - Forbidden: Access is denied.</h2><h3>You do not have permission to view this directory or page using the credentials that you supplied.</h3></fieldset></div></div></body></html>');
+		}
+	});
+	data.headers['user-agent'] = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/61.0.3163.100 Safari/537.36 OPR/12';
+	if(extractHostname(data.url)==='google.com')data.headers['cookie'] = '';
+	return data
 }
 
 var unblockerConfig = {
     prefix: '/textbooks/',
-    responseMiddleware: [
-        googleAnalyticsMiddleware
-    ]
+	requestMiddleware: [
+		userAgent
+	]
 };
 
 
